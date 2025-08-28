@@ -228,4 +228,4 @@ sudo systemctl status lan-ids.service
 
 ---
 
-**Licence** : libre à votre convenance (ex. MIT). Indiquez la licence souhaitée.
+**Licence** :  MIT
