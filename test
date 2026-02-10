@@ -1,0 +1,195 @@
+Bonjour,
+
+Dans le cadre du projet de déploiement de l'infrastructure cloud multi-continentale basée sur Kubernetes/OpenShift, la cellule Backup est en charge de rédiger le cahier des charges du service de sauvegarde conforme au règlement DORA.
+
+Afin d'élaborer ce document, nous lançons une phase de collecte des besoins auprès de vos équipes. Les informations recueillies permettront de :
+- Définir les classes de services de backup adaptées à vos exigences métier
+- Identifier les contraintes techniques et réglementaires
+- Établir les SLA (RPO/RTO) par niveau de criticité
+- Préparer le POC de validation
+
+Merci de bien vouloir répondre aux questions ci-dessous **d'ici le [date]**.
+
+---
+
+### **QUESTIONS COMMUNES CaaS & YaaS**
+
+#### **1. Périmètre applicatif et criticité**
+
+**1.1 Classification des applications**
+- Utilisez-vous déjà une classification de criticité des applications (Tier 1/2/3, Gold/Silver/Bronze, autre) ?
+- Si oui, quels sont les critères de classification (impact métier, réglementaire, financier) ?
+- Combien d'applications estimées par niveau de criticité ?
+
+**1.2 Applications soumises à DORA**
+- Quelles applications sont directement concernées par le règlement DORA ?
+- Ces applications sont-elles identifiées comme "services financiers essentiels" ou "critiques" ?
+- Y a-t-il des dépendances entre applications critiques et non-critiques ?
+
+**1.3 Environnements**
+- Combien d'environnements prévus (développement, recette, pré-production, production) ?
+- Tous les environnements nécessitent-ils une sauvegarde ou uniquement la production ?
+- Les environnements de développement/test ont-ils des exigences spécifiques ?
+
+#### **2. Exigences métier et réglementaires**
+
+**2.1 Objectifs de reprise (RPO/RTO)**
+- Quels sont les RPO (Recovery Point Objective) maximum acceptables par criticité ?
+  * Applications critiques DORA : _____
+  * Applications importantes : _____
+  * Applications standard : _____
+
+- Quels sont les RTO (Recovery Time Objective) maximum acceptables par criticité ?
+  * Applications critiques DORA : _____
+  * Applications importantes : _____
+  * Applications standard : _____
+
+**2.2 Contraintes réglementaires**
+- Durée de rétention légale des données par type d'application : _____
+- Obligations de géolocalisation des backups (résidence des données, contraintes pays) : _____
+- Exigences d'immutabilité des backups (WORM, Object Lock) : Oui / Non / Selon criticité
+- Exigences de chiffrement : _____
+
+**2.3 Continuité d'activité**
+- Existe-t-il un Plan de Continuité d'Activité (PCA) ou Plan de Reprise d'Activité (PRA) documenté ?
+- Sites de secours identifiés et leur localisation géographique : _____
+- Scénarios de sinistre à couvrir : perte d'un datacenter, d'une région, d'un cloud provider ?
+
+#### **3. Contraintes opérationnelles**
+
+**3.1 Fenêtres de sauvegarde**
+- Existe-t-il des fenêtres de maintenance autorisées pour les backups ?
+- Y a-t-il des périodes interdites (fins de mois, arrêtés comptables, pics d'activité métier) ?
+- Contraintes de performance : impact acceptable sur les applications pendant les backups ?
+
+**3.2 Tests de restauration (exigence DORA)**
+- Quelle fréquence de tests de restauration souhaitée (DORA impose minimum trimestriel) ?
+- Qui doit valider les tests : équipes techniques, métier, audit, conformité ?
+- Besoin d'environnements dédiés pour les tests de restauration ?
+
+**3.3 Processus et gouvernance**
+- Qui sera responsable de la demande de sauvegarde d'une nouvelle application ?
+- Processus d'escalade en cas d'incident de sauvegarde ou restauration : _____
+- Besoin de rapports de conformité : fréquence et destinataires ?
+
+---
+
+### **QUESTIONS SPÉCIFIQUES À LA CELLULE CaaS**
+
+#### **4. Infrastructure OpenShift**
+
+**4.1 Architecture**
+- Combien de clusters OpenShift prévus par environnement et par région/continent ?
+- Versions d'OpenShift ciblées : _____
+- Type de déploiement : cloud public (AWS, Azure, GCP), cloud privé (on-premise), hybride ?
+
+**4.2 Organisation des workloads**
+- Nombre de namespaces/projets estimés par cluster : _____
+- Nomenclature de namespaces utilisée (ex: prod-*, app-*) : _____
+- Types d'applications déployées :
+  * Applications stateless (APIs, microservices) : _____
+  * Applications stateful (bases de données, messaging) : _____
+  * Utilisation d'opérateurs (Operator Framework) : Oui / Non
+
+**4.3 Stockage**
+- Quelles storage classes seront disponibles (Ceph, NetApp, EBS, Azure Disk, etc.) ?
+- Types de Persistent Volumes : ReadWriteOnce (RWO), ReadWriteMany (RWX) ?
+- Volumétrie totale estimée de données à sauvegarder par environnement : _____
+- Taux de croissance des données anticipé (mensuel/annuel) : _____
+
+**4.4 Bases de données et applications stateful**
+- Quelles bases de données seront déployées dans OpenShift (PostgreSQL, MySQL, MongoDB, etc.) ?
+- Utilisation d'opérateurs de bases de données (Crunchy Data, MariaDB Operator) : Oui / Non
+- Exigences de cohérence applicative (hooks pre/post-backup) : _____
+- Bases de données externes à OpenShift mais liées aux applications : _____
+
+**4.5 Sécurité et données sensibles**
+- Présence de données personnelles (RGPD) : Oui / Non
+- Classification des données (public, interne, confidentiel, secret) : _____
+- Secrets Kubernetes : doivent-ils être sauvegardés ? Chiffrés séparément ?
+- Certificats TLS : sauvegarde nécessaire ou régénération possible ?
+
+**4.6 Résilience géographique**
+- Stratégie multi-région/multi-cloud : _____
+- Besoin de restauration cross-cluster (migration vers autre cluster) : Oui / Non
+- Besoin de restauration cross-cloud (AWS vers Azure, etc.) : Oui / Non
+
+---
+
+### **QUESTIONS SPÉCIFIQUES À LA CELLULE YaaS**
+
+#### **5. Applications et données**
+
+**5.1 Inventaire applicatif**
+- Liste des applications avec leur criticité (à fournir ou format attendu) : _____
+- Cartographie des dépendances inter-applications : disponible / à construire
+- Applications 24/7 sans fenêtre d'arrêt : _____
+
+**5.2 Caractéristiques des données**
+- Nature des données à sauvegarder (fichiers, bases, objets, configurations) : _____
+- Données hautement transactionnelles nécessitant une cohérence forte : _____
+- Volumétrie par application (estimée) : _____
+
+**5.3 Exigences de restauration**
+- Besoin de restauration granulaire (fichier, table, objet) ou complète uniquement ?
+- Restauration à un point dans le temps (PITR - Point In Time Recovery) nécessaire : Oui / Non / Selon applications
+- Restauration dans un environnement différent (clonage, sandbox) : _____
+
+**5.4 Intégrations et dépendances**
+- Applications intégrées à des systèmes externes nécessitant une sauvegarde coordonnée : _____
+- Middleware ou bus de messages (Kafka, RabbitMQ) à sauvegarder : _____
+- Fichiers partagés (NFS, CIFS) montés dans les applications : _____
+
+---
+
+### **6. Proposition de classes de services**
+
+Pour structurer l'offre de backup, nous envisageons de proposer **plusieurs classes de services** alignées sur les niveaux de criticité. Voici une première proposition à valider/ajuster :
+
+| Classe de service | Criticité cible | RPO proposé | RTO proposé | Fréquence backup | Rétention | Géo-redondance | Immutabilité |
+|-------------------|-----------------|-------------|-------------|------------------|-----------|----------------|--------------|
+| **Gold (Critique DORA)** | Tier 1 / Critique | ≤ 1h | ≤ 4h | Horaire | 7j/4s/12m/7a | 3 sites | Obligatoire |
+| **Silver (Important)** | Tier 2 / Important | ≤ 4h | ≤ 24h | 4x/jour | 7j/4s/6m/3a | 2 sites | Recommandée |
+| **Bronze (Standard)** | Tier 3 / Standard | ≤ 24h | ≤ 72h | 1x/jour | 7j/4s/3m | 1 site + réplication | Optionnelle |
+
+**Questions :**
+- Cette proposition de classes de services correspond-elle à vos besoins ?
+- Faut-il ajouter, supprimer ou modifier des classes ?
+- Les RPO/RTO proposés sont-ils alignés avec vos exigences métier et DORA ?
+- D'autres paramètres à intégrer (bande passante, chiffrement spécifique, etc.) ?
+
+---
+
+### **7. Informations complémentaires**
+
+**7.1 Contraintes budgétaires**
+- Existe-t-il une enveloppe budgétaire dédiée au backup : Oui / Non / En cours de définition
+- Contraintes de coût à intégrer dans le cahier des charges : _____
+
+**7.2 Planning**
+- Date de mise en production cible de l'infrastructure OpenShift : _____
+- Date souhaitée de disponibilité du service de backup : _____
+- Contraintes de planning spécifiques : _____
+
+**7.3 Points de contact**
+- Référent technique CaaS : _____
+- Référent métier/applicatif YaaS : _____
+- Référent sécurité/conformité : _____
+
+---
+
+### **Prochaines étapes**
+
+1. **Retour questionnaire** : [date limite]
+2. **Atelier de consolidation** : réunion de travail pour clarifier les besoins (date à planifier)
+3. **Rédaction cahier des charges** : diffusion version draft pour validation
+4. **Validation finale** : comité de pilotage
+5. **Lancement POC** : après validation du cahier des charges
+
+Nous restons à votre disposition pour toute question ou précision sur ce questionnaire.
+
+Merci par avance pour votre collaboration.
+
+Cordialement,  
+[Votre nom]  
+Cellule Backup / NetBackup  
