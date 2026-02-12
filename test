@@ -1,1 +1,81 @@
 
+#!/usr/bin/perl
+use strict;
+use warnings;
+
+my $nbu_bin = "/usr/openv/netbackup/bin/admincmd/bppllist";
+my $server_file = shift or die "Usage: $0 <fichier_serveurs>\n";
+
+# 1. Charger la liste des serveurs cibles en mémoire
+open(my $fh_in, '<', $server_file) or die "Erreur ouverture $server_file: $!";
+my %target_clients = map { chomp; $_ => 1 } <$fh_in>;
+close($fh_in);
+
+# 2. Récupérer toute la configuration
+print "Analyse en cours...\n" >&2;
+open(my $nbu_data, "-|", "$nbu_bin -allpolicies -L") or die "Erreur bppllist: $!";
+
+print "Client;Policy;Schedule_Name;Schedule_Type;SLP;StorageUnit\n";
+
+my ($current_policy, $current_stu, $last_sched_name);
+my @policy_clients;
+my @schedules_info; # Tableau de hash pour stocker { name => X, type => Y }
+
+while (my $line = <$nbu_data>) {
+    chomp($line);
+
+    # Détection Nouvelle Politique
+    if ($line =~ /^Policy Name:\s+(\S+)/) {
+        process_policy($current_policy, \@policy_clients, \@schedules_info, $current_stu);
+        $current_policy = $1;
+        @policy_clients = ();
+        @schedules_info = ();
+        $current_stu = "N/A";
+    }
+    
+    # Storage Unit
+    if ($line =~ /^Residence:\s+(\S+)/) {
+        $current_stu = $1;
+    }
+
+    # Clients
+    if ($line =~ /^Client:\s+(\S+)/) {
+        push(@policy_clients, $1);
+    }
+
+    # Schedule Name
+    if ($line =~ /^Schedule:\s+(\S+)/) {
+        $last_sched_name = $1;
+    }
+
+    # Schedule Type (ex: FULL, INCR, UBAK)
+    if ($line =~ /^\s+Type:\s+(.*)/) {
+        my $type = $1;
+        $type =~ s/\s+$//; # Nettoyage espaces fin de ligne
+        push(@schedules_info, { name => $last_sched_name, type => $type });
+    }
+}
+# Traiter la dernière politique
+process_policy($current_policy, \@policy_clients, \@schedules_info, $current_stu);
+close($nbu_data);
+
+sub process_policy {
+    my ($pol, $clients_ref, $schds_ref, $stu) = @_;
+    return unless $pol;
+
+    foreach my $client (@$clients_ref) {
+        if (exists $target_clients{$client}) {
+            my $slp = ($stu =~ /_SLP/i) ? $stu : "N/A";
+            
+            # On génère une ligne par schedule pour plus de clarté dans Excel
+            if (@$schds_ref) {
+                foreach my $s (@$schds_ref) {
+                    printf("%s;%s;%s;%s;%s;%s\n", $client, $pol, $s->{name}, $s->{type}, $slp, $stu);
+                }
+            } else {
+                # Cas rare : politique sans schedule
+                printf("%s;%s;N/A;N/A;%s;%s\n", $client, $pol, $slp, $stu);
+            }
+        }
+    }
+}
