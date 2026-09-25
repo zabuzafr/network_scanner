@@ -1,231 +1,191 @@
-# lan_ids_v3 — Scanner LAN + IDS léger (sans nmap)
+# Network Scanner
 
-**lan_ids_v3.py** est un outil Python tout-en-un pour surveiller un réseau local :
-- **Scan ARP** rapide (sans *nmap*), enrichi (MAC, vendor/OUI, reverse DNS).
-- **Détection d’OS** best‑effort via **TTL** (ICMP puis TCP SYN).
-- **Tableau console** clair (couleurs via *rich*, fallback ASCII).
-- **Exports** : CSV / JSON (+ **XLSX** si *openpyxl*).
-- **IDS passif** : heuristiques pour **ARP/DNS/DHCP** + détection de **scans** (SYN/ICMP).
-- **Notifications** (facultatives) : **Telegram**, **Discord**, **WhatsApp Business Cloud API**.
-- **Coloration persistante** :
-  - **NEW** *(vert)* : nouvel hôte, pendant **3 heures**.
-  - **DOWN** *(rouge)* : hôte connu non vu au scan courant.
-  - **SCANNER** *(orange)* : activité de scan récente (SYN/ICMP), pendant **1 heure**.
-  - **ALERT** *(rouge)* : alerte sécurité récente (ARP/DNS/DHCP), pendant **1 heure**.
+Plateforme de supervision réseau : scan actif (ARP/ICMP/TCP), fingerprint OS, classification d'équipements par règles YAML, détection d'attaques WiFi (evil twin, rogue AP, cryptage faible), détection de sniffing, suivi CVE d'exposition des services, API REST complète et interface web en temps réel.
 
-> ⚠️ Nécessite des privilèges réseau (raw sockets). Voir la section **Permissions**.
+## Aperçu
 
----
+| Vue d'ensemble | Console de scan |
+|:-:|:-:|
+| ![Vue d'ensemble](screenshots/ns_overview.png) | ![Scan](screenshots/ns_scan.png) |
 
-## Sommaire
-- [Prérequis](#prérequis)
-- [Installation](#installation)
-- [Permissions](#permissions)
-- [Démarrage rapide](#démarrage-rapide)
-- [Arguments CLI](#arguments-cli)
-- [Config YAML (optionnelle)](#config-yaml-optionnelle)
-- [Sorties générées](#sorties-générées)
-- [Notifications (Telegram/Discord/WhatsApp)](#notifications-telegramdiscordwhatsapp)
-- [Service systemd (optionnel)](#service-systemd-optionnel)
-- [Sécurité & bonnes pratiques](#sécurité--bonnes-pratiques)
-- [Limites connues](#limites-connues)
+| Résultats & alertes | Détection WiFi |
+|:-:|:-:|
+| ![Résultats](screenshots/ns_results.png) | ![WiFi](screenshots/ns_wifi.png) |
 
----
+| Modal hôte | Détail CVE |
+|:-:|:-:|
+| ![Modal hôte](screenshots/ns_host_modal.png) | ![CVE](screenshots/ns_cve_modal.png) |
 
-## Prérequis
-- **Python 3.9+** recommandé
-- Bibliothèques Python :
-  ```bash
-  pip install scapy manuf rich openpyxl pyyaml requests
-  ```
-- **Linux** conseillé. **macOS** et **Windows** fonctionnent également :
-  - Windows : installer **Npcap** (Scapy s’appuie dessus).
-  - macOS : lancer le script avec `sudo`.
+## Fonctionnalités
 
-## Installation
-Placez `lan_ids_v3.py` dans un dossier dédié, p.ex. `/opt/lan-scanner/`.
+- **Scan réseau actif** — ARP + ICMP + TCP probes, fingerprint OS, classification par vendor (OUI) et règles YAML
+- **Scan IP unique** — ciblage d'un hôte précis avec détection de services et CVE
+- **Détection WiFi passive** — 5 types d'attaques :
+  | Type | Severité | Description |
+  |------|---------|-------------|
+  | `EVIL_TWIN` | critique | SSID identique au réseau légitime, BSSID différent |
+  | `ROGUE_AP` | haute | Point d'accès inconnu signalé anormalement fort |
+  | `WEAK_CRYPT` | critique / haute / moyenne | WEP (critique), TKIP (haute), WPA/WPA2 ouvert (moyenne) |
+  | `AD_HOC` | moyenne | Réseau en mode ad-hoc |
+  | `NEW_AP` | basse | Nouvel AP inconnu détecté |
+- **Détection de sniffing** — identification des MAC en écoute passive sur le segment local
+- **Suivi CVE** — détection des vulnérabilités connues sur les services détectés (Nmap service/version), modal interactif
+- **Surveillance passive continue** — mode monitor, alerts en temps réel
+- **API REST** — endpoints pour scan, hôtes, alertes, WiFi, monitor, CVE
+- **Interface web** — dashboard temps réel, modaux détaillés, badges CVE
+- **Classification par règles YAML** — extension sans redémarrage
 
-## Permissions
-Le scan ARP/ICMP requiert des sockets RAW :
-- **Linux** (recommandé) : soit exécuter en `sudo`, soit accorder des capabilities au binaire Python :
-  ```bash
-  sudo setcap cap_net_raw,cap_net_admin+eip $(which python3)
-  ```
-- **Windows/macOS** : exécuter en administrateur / via `sudo`.
+## Stack
 
----
+| Couche | Technologies |
+|--------|-------------|
+| Backend | FastAPI, Pydantic v2, pydantic-settings |
+| Scan | Scapy (ARP/ICMP/TCP), `manuf` (OUI) |
+| WiFi | `nmcli` (détection passive) |
+| DB | SQLAlchemy — SQLite (dev), PostgreSQL (prod) |
+| Frontend | Vanilla JS, CSS (dark theme) |
+| Tests | pytest (Scapy entièrement mocké) |
+
+## Architecture
+
+```
+network_scanner/
+├── scanner/            # Moteur de scan
+│   ├── core.py         #     scan_network, scan_ip, os_fingerprint
+│   ├── passive.py      #     surveillance passive
+│   ├── sniffing.py     #     détection de sniffers (detect_sniffers, get_own_mac)
+│   └── wifi_detect.py  #     détection d'attaques WiFi (5 règles)
+├── classifier/         # Classification & enrichissement
+│   ├── rules.py        #     Modèles Rule / ClassifyResult
+│   ├── engine.py       #     ClassificationEngine, create_engine_from_yaml
+│   ├── cves.py         #     detect_cves, get_cve_details
+│   ├── compliance.py   #     conformité
+│   └── credentials.py  #     gestion credentials
+├── db/                 # Persistance SQLAlchemy
+│   ├── models.py       #     Host, Alert, EventLog, ScanSession, WifiNetwork, WifiAttack, HostMAC, Service
+│   └── init.py         #     initialisation de la DB et du schéma
+├── api/                # Serveur FastAPI
+│   ├── main.py         #     App + CORS + /status
+│   ├── routes.py       #     Tous les endpoints
+│   ├── models.py       #     Schémas Pydantic
+│   └── config.py       #     Settings (pydantic-settings)
+├── config/             # Configuration
+│   ├── rules.yaml      #     Règles de classification
+│   └── config.yaml     #     Paramètres scanner / DB / notifications
+├── web/                # Frontend
+│   ├── index.html      #     HTML
+│   ├── app.js          #     Logique JS
+│   └── style.css       #     CSS dark theme
+├── utils/              # Utilitaires
+│   ├── datetime_utils.py
+│   └── logging.py
+└── tests/              # Suite pytest
+    ├── test_scanner.py
+    ├── test_classifier.py
+    ├── test_new_features.py
+    └── test_wifi_detect.py
+```
 
 ## Démarrage rapide
+
 ```bash
-# Scan continu sur 192.168.1.0/24 via eth0
-sudo python3 lan_ids_v3.py --network 192.168.1.0/24 --iface eth0
+# 1. Cloner le dépôt
+git clone https://github.com/zabuzafr/network_scanner.git
+cd network_scanner
 
-# Un seul passage, sortie console + CSV/JSON
-sudo python3 lan_ids_v3.py --once
+# 2. Créer l'environnement virtualisé
+python -m venv venv
+source venv/bin/activate
 
-# Avec fichier de configuration YAML
-sudo python3 lan_ids_v3.py --config config.yaml
+# 3. Installer les dépendances
+pip install fastapi "uvicorn[standard]" sqlalchemy scapy manuf pyyaml "pydantic-settings"
+
+# 4. Copier la configuration d'exemple
+cp config/config.yaml.example config/config.yaml
+
+# 5. Lancer l'API
+uvicorn api.main:app --reload --port 8000
 ```
 
----
+- Interface web : `http://localhost:8000`
+- Swagger : `http://localhost:8000/docs`
+- Health check : `curl http://localhost:8000/status`
 
-## Arguments CLI
-> Tous les paramètres sont disponibles en CLI et/ou via YAML. Le YAML **n’écrase pas** une option explicitement fournie en CLI.
+> Le scan actif utilise Scapy et nécessite les droits `CAP_NET_RAW` (ou `sudo`).
 
-### Paramètres généraux
-- `--config <fichier>` : fichier YAML optionnel.
-- `--network 192.168.1.0/24` : réseau cible (CIDR).
-- `--iface eth0` : interface réseau (défaut : interface Scapy).
-- `--interval 60` : délai (s) entre scans en mode boucle.
-- `--once` : effectue **un seul** scan puis quitte.
-- `--no-rich` : désactive l’affichage coloré (*rich*).
-- `--no-clear` : n’efface pas l’écran à chaque itération.
+## API Endpoints
 
-### Fichiers de sortie
-- `--csv scan_report.csv` : export CSV.
-- `--xlsx report.xlsx` : export XLSX (si *openpyxl*).
-- `--json scan_hosts.json` : état complet des hôtes.
-- `--log scan_results.log` : journal des **nouvelles IP** détectées.
-- `--alerts alerts.jsonl` : journal **JSON Lines** des alertes IDS (avec rotation).
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| `GET` | `/status` | Health check |
+| `POST` | `/scan` | Déclencher un scan CIDR (CIDR, iface, timeout) |
+| `GET` | `/scan/{scan_id}` | Statut d'un scan en cours |
+| `POST` | `/scan/ip` | Scan d'une IP unique |
+| `GET` | `/hosts` | Liste des hôtes persistés |
+| `GET` | `/alerts` | Alerte de sécurité |
+| `GET` | `/cves` | Liste des CVE connues |
+| `GET` | `/cves/{cve_id}` | Détail d'une CVE |
+| `GET` | `/interfaces` | Interfaces réseau disponibles |
+| `POST` | `/monitor/start` | Démarrer la surveillance passive |
+| `POST` | `/monitor/stop` | Arrêter la surveillance |
+| `GET` | `/monitor/status` | Statut du monitor |
+| `GET` | `/wifi/interface` | Info interface WiFi |
+| `GET` | `/wifi/scan` | Scan WiFi passif |
+| `GET` | `/wifi/attacks` | Historique des attaques détectées |
+| `POST` | `/wifi/networks/{bssid}/acknowledge` | Marquer un AP comme connu |
+| `DELETE` | `/wifi/attacks/{attack_id}` | Supprimer une alerte |
+| `DELETE` | `/wifi/attacks` | Vider l'historique |
 
-### Détection d’OS (timeouts/sondes)
-- `--icmp-timeout 1.0` : timeout ICMP (s).
-- `--tcp-timeout 1.0` : timeout TCP (s) pour SYN.
-- `--tcp-probes 443 80` : ports sondés si ICMP bloqué.
+## Configuration
 
-### IDS (heuristiques)
-- `--no-ids` : désactive l’IDS passif.
-- `--dns-servers <ip ...>` : **liste blanche** de serveurs DNS autorisés.
-- `--dhcp-servers <ip ...>` : **liste blanche** de serveurs DHCP autorisés.
-- `--ids-window 30` : fenêtre (s) d’agrégation pour détection de scans.
-- `--syn-threshold 30` : seuil de ports distincts (SYN) → scan.
-- `--icmp-threshold 30` : seuil de destinations ICMP → sweep.
-- `--arp-flood-threshold 100` : seuil de réponses ARP/10s par MAC → flood.
-- `--dns-contradiction-sec 60` : fenêtre pour repérer des réponses DNS contradictoires.
-- `--no-arp-change-alert` : ne pas alerter sur changement IP↔MAC.
-- `--no-arp-validation` : ne pas **revalider activement** un changement ARP via ARP probe.
+Via `config/config.yaml` ou variables d'environnement (pydantic-settings) :
 
-### Notifications (facultatives)
-- `--notify-min-level INFO|WARN|ALERT` : seuil minimal d’envoi (défaut : `WARN`).
-- **Telegram** : `--tg-token <tok>` et `--tg-chat <id>`.
-- **Discord** : `--discord-webhook <url>`.
-- **WhatsApp Business Cloud** : `--wa-token <tok> --wa-phone-id <id> --wa-to <E164>`
-  - Optionnel : `--wa-template <nom>` (fallback hors 24h) et `--wa-template-lang fr`.
+| Clé / Variable | Défaut | Description |
+|----------------|--------|-------------|
+| `scanner.default_cidr` | `10.0.0.0/24` | Bloc CIDR par défaut |
+| `scanner.timeout` | `2` | Timeout scan global (s) |
+| `scanner.icmp_timeout` | `1.0` | Timeout probe ICMP (s) |
+| `scanner.tcp_timeout` | `1.0` | Timeout probe TCP (s) |
+| `scanner.tcp_probes` | `443,80` | Ports TCP sondés |
+| `classifier.rules_yaml` | `config/rules.yaml` | Fichier de règles |
+| `database.url` | `sqlite:///./network_scanner.db` | DSN SQLAlchemy |
+| `notifications.telegram.enabled` | `false` | Notifications Telegram |
+| `notifications.discord.enabled` | `false` | Notifications Discord |
 
----
+## Règles de classification (`config/rules.yaml`)
 
-## Config YAML (optionnelle)
+Chaque règle définance un type d'appareil avec des critères de correspondance (`port`, `hostname_regex`, `vendor_regex`, `banner_regex`) et une priorité. Les hôtes sont classifiés pour chaque règle correspondante.
+
 ```yaml
-network: "192.168.1.0/24"
-iface: "eth0"
-interval: 30
-csv: "/var/log/lan-scan/report.csv"
-xlsx: "/var/log/lan-scan/report.xlsx"
-json: "/var/log/lan-scan/hosts.json"
-log: "/var/log/lan-scan/new_ips.log"
-alerts: "/var/log/lan-scan/alerts.jsonl"
-
-ids:
-  dns_servers: ["192.168.1.1", "10.0.0.53"]
-  dhcp_servers: ["192.168.1.1"]
-  window: 30
-  syn_threshold: 20
-  icmp_threshold: 20
-  arp_flood_threshold: 60
-  dns_contradiction_sec: 60
-  arp_change_alert: true
-  arp_validation: true
-
-notify:
-  min_level: "WARN"
-  telegram:
-    token: "1234567:ABCDEF..."
-    chat: "-1001234567890"
-  discord:
-    webhook: "https://discord.com/api/webhooks/..."
-  whatsapp:
-    access_token: "EAAG..."
-    phone_number_id: "123456789012345"
-    to: "33612345678"
-    template: "net_alert"   # optionnel
-    template_lang: "fr"     # optionnel
+rules:
+  - name: "camera-onvif"
+    category: "camera"
+    matches:
+      - port: 8899
+    priority: 10
 ```
-> Règle : les valeurs du YAML **n’écrasent pas** celles fournies en CLI.
 
----
+L'API rechargue le YAML à chaque scan — aucune nécessité de redémarrage.
 
-## Sorties générées
-- **Console** : tableau trié (IP), avec colonne **Status** : `NEW` (vert) · `DOWN` (rouge) · `SCANNER` (orange) · `ALERT` (rouge).
-- **CSV / XLSX** : colonnes : IP, Hostname, MAC, Type MAC, Vendor, OS, TTL, Src TTL, **Status**.
-- **JSON (`scan_hosts.json`)** : liste d’hôtes connus avec `first_seen` / `last_seen` et métadonnées.
-- **Logs** :
-  - `scan_results.log` : nouvelles IP détectées.
-  - `alerts.jsonl` : événements IDS (rotation automatique, format JSONL). 
-
-### Comment sont déterminés les statuts
-- **NEW** : `now - first_seen < 3h`.
-- **DOWN** : hôte présent dans `scan_hosts.json` mais **absent** du scan courant.
-- **SCANNER** : IP marquée *warn* par l’IDS (SYN scan/ICMP sweep récents).
-- **ALERT** : IP marquée *alert* par l’IDS (ARP spoof validé, DNS non autorisé, DHCP rogue…).
-
-> La détection d’OS via TTL est **indicative** (pare‑feux/routeurs peuvent biaiser les TTL).
-
----
-
-## Notifications (Telegram/Discord/WhatsApp)
-- Le seuil `--notify-min-level` contrôle ce qui part : `WARN` ou `ALERT` par défaut.
-- **Telegram** : créez un bot via `@BotFather`, récupérez `token` + `chat_id` et passez-les en CLI/YAML.
-- **Discord** : créez un **webhook** dans le salon cible et collez l’URL.
-- **WhatsApp Business Cloud** : utilisez un **access token** & **phone_number_id**. 
-  - Pour envoyer un texte **hors fenêtre de 24h**, définissez un **template** approuvé (ex. `net_alert`) et fournissez `--wa-template`.
-
----
-
-## Service systemd (optionnel)
-`/etc/systemd/system/lan-ids.service`
-```ini
-[Unit]
-Description=LAN IDS scanner (sans nmap)
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/opt/lan-scanner
-ExecStart=/usr/bin/python3 /opt/lan-scanner/lan_ids_v3.py --config /opt/lan-scanner/config.yaml
-Restart=on-failure
-# Sécurité (Linux):
-# AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
-# NoNewPrivileges=true
-# ProtectSystem=strict
-
-[Install]
-WantedBy=multi-user.target
-```
+## Tests
 
 ```bash
-sudo mkdir -p /opt/lan-scanner /var/log/lan-scan
-sudo cp lan_ids_v3.py /opt/lan-scanner/
-sudo cp config.yaml /opt/lan-scanner/
-sudo systemctl daemon-reload
-sudo systemctl enable --now lan-ids.service
-sudo systemctl status lan-ids.service
+python -m pytest tests/ -v
+
+# Un seul fichier
+python -m pytest tests/test_wifi_detect.py -v
+
+# Filtre par nom
+python -m pytest -k "tcp" -v
+
+# Avec couverture
+python -m pytest tests/ --cov=scanner --cov=classifier --cov-report=term-missing
 ```
 
----
+Les tests Scapy sont complètement mockés (`scanner.core.sr` / `sr1`) — aucun accès root ni réseau requis.
 
-## Sécurité & bonnes pratiques
-- Limitez les privilèges : privilégiez les **capabilities** Linux à `sudo` global.
-- Ajustez les **seuils IDS** à votre trafic (heures de pointe vs heures creuses).
-- Renseignez `--dns-servers` et `--dhcp-servers` (whitelists) pour réduire les faux positifs.
-- Protégez les **secrets** (tokens) via variables d’environnement ou fichiers de config aux droits restreints.
+**Suite complète : 115 tests, toutes passes.**
 
-## Limites connues
-- ARP/ICMP ne traversent pas les routeurs : l’outil est **LAN‑local**.
-- La **détection d’OS** est heuristique.
-- Certains bruits légitimes (VMs, DHCP, proxies DNS, split‑horizon) peuvent déclencher des alertes ; adaptez les seuils et whitelists.
+## Licences
 
----
-
-**Licence** :  MIT
+Ce projet est fourni « en l'état ». Les dépendances (Scapy, FastAPI, SQLAlchemy, etc.) sont sous leurs licences respectives.

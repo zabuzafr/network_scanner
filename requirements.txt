@@ -1,0 +1,9 @@
+fastapi>=0.141.1
+uvicorn>=0.53.0
+sqlalchemy>=2.0.54
+pydantic>=2.13.5
+pydantic-settings>=2.15.0
+scapy>=2.7.0
+PyYAML>=6.0.3
+manuf>=1.1.5
+pytest>=9.1.1

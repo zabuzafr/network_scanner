@@ -1,0 +1,268 @@
+version: "1.0"
+rules:
+  - name: "camera-onvif"
+    category: "camera"
+    description: "Caméras IP détectées via port ONVIF (8899)"
+    matches:
+      - port: 8899
+    priority: 10
+    tags:
+      - surveillance
+      - ip
+
+  - name: "camera-rtsp"
+    category: "camera"
+    description: "Caméras IP détectées via port RTSP (554)"
+    matches:
+      - port: 554
+    priority: 9
+    tags:
+      - surveillance
+      - video
+
+  - name: "camera-hikvision"
+    category: "camera"
+    description: "Caméra / NVR Hikvision identifiée par le product string"
+    matches:
+      - product_regex: "hikvision|ds-2ce|ds-2cd"
+    priority: 11
+    tags:
+      - surveillance
+      - hikvision
+      - ip
+
+  - name: "camera-dahua"
+    category: "camera"
+    description: "Caméra / NVR Dahua identifiée par le product string"
+    matches:
+      - product_regex: "dahua|icc|dss|hdcs"
+    priority: 11
+    tags:
+      - surveillance
+      - dahua
+      - ip
+
+  - name: "camera-uniview"
+    category: "camera"
+    description: "Caméra Uniview identifiée par le product string"
+    matches:
+      - product_regex: "uniview|ic32|ipc3"
+    priority: 10
+    tags:
+      - surveillance
+      - uniview
+      - ip
+
+  - name: "camera-bosch"
+    category: "camera"
+    description: "Caméra Bosch / Axis / Avigilon (grand constructeur)"
+    matches:
+      - product_regex: "axis|bosch|avigilon|mobotix|geovision|acti|arecont"
+    priority: 10
+    tags:
+      - surveillance
+      - pro
+      - ip
+
+  - name: "nas-synology"
+    category: "nas"
+    description: "NAS Synology (DSM) identifié par le product string"
+    matches:
+      - product_regex: "synology|dsm|diskstation"
+    priority: 12
+    tags:
+      - stockage
+      - nas
+      - synology
+
+  - name: "nas-zyxel"
+    category: "nas"
+    description: "NAS Zyxel identifié par le product string"
+    matches:
+      - product_regex: "zyxel.*nas|nas.*zyxel"
+    priority: 11
+    tags:
+      - stockage
+      - nas
+      - zyxel
+
+  - name: "router-mikrotik"
+    category: "network-device"
+    description: "Routeur MikroTik RouterOS identifié par le product string"
+    matches:
+      - product_regex: "mikrotik|routeros|ccr|rb2"
+    priority: 12
+    tags:
+      - routeur
+      - mikrotik
+      - infrastructure
+
+  - name: "router-netgear"
+    category: "network-device"
+    description: "Routeur Netgear identifié par le product string"
+    matches:
+      - product_regex: "netgear|r6220|orbi|wax630"
+    priority: 10
+    tags:
+      - routeur
+      - netgear
+      - infrastructure
+
+  - name: "router-linksys"
+    category: "network-device"
+    description: "Routeur Linksys identifié par le product string"
+    matches:
+      - product_regex: "linksys|ea8300|velop|mr8300"
+    priority: 10
+    tags:
+      - routeur
+      - linksys
+      - infrastructure
+
+  - name: "router-cisco-ios"
+    category: "network-device"
+    description: "Routeur / switch Cisco IOS identifié par le product string"
+    matches:
+      - product_regex: "cisco .*ios|catalyst|cisco |asr|ws-|2960|3560|3650|9300|ise|asa550"
+    priority: 11
+    tags:
+      - cisco
+      - routeur
+      - switch
+      - infrastructure
+
+  - name: "router-ubiquiti"
+    category: "network-device"
+    description: "Équipement Ubiquiti (UniFi / EdgeRouter) par product string"
+    matches:
+      - product_regex: "ubiquiti|unifi|edgerouter|usg|uap|unifi.*controller"
+    priority: 11
+    tags:
+      - ubiquiti
+      - routeur
+      - infrastructure
+
+  - name: "router-tp-link"
+    category: "network-device"
+    description: "Routeur / CPE TP-Link identifié par le product string"
+    matches:
+      - product_regex: "tp-link|tplink|omada|archer|cpe"
+    priority: 10
+    tags:
+      - tp-link
+      - routeur
+      - cpe
+      - infrastructure
+
+  - name: "firewall-zyxel"
+    category: "network-device"
+    description: "Firewall Zyxel USG identifié par le product string"
+    matches:
+      - product_regex: "zyxel.*usg|usg.*zyxel"
+    priority: 11
+    tags:
+      - zyxel
+      - firewall
+      - infrastructure
+
+  - name: "ap-aruba"
+    category: "network-device"
+    description: "Point d'accès Aruba / ClearPass identifié par product string"
+    matches:
+      - product_regex: "aruba|instant ap|clearpass|ap-5|ap-7|ap-9"
+    priority: 11
+    tags:
+      - aruba
+      - wlc
+      - infrastructure
+
+  - name: "nvr-generic"
+    category: "camera"
+    description: "NVR / VMS générique (HMS, XMEye, etc.)"
+    matches:
+      - product_regex: "nvr|vms|xmeyle|hms.*nvr|dvr"
+    priority: 9
+    tags:
+      - surveillance
+      - nvr
+
+  - name: "switch-cisco"
+    category: "network-device"
+    description: "Switch Cisco avec banner spécifique"
+    matches:
+      - banner_regex: "Cisco IOS Software"
+    priority: 8
+    tags:
+      - cisco
+      - switch
+
+  - name: "printer"
+    category: "printer"
+    description: "Imprimantes détectées via port 9100"
+    matches:
+      - port: 9100
+    priority: 7
+    tags:
+      - impression
+
+  - name: "mqtt-broker"
+    category: "mqtt"
+    description: "Broker MQTT détecté (ports 1883/8883)"
+    matches:
+      - port: 1883
+      - port: 8883
+    priority: 10
+    tags:
+      - mqtt
+      - broker
+
+  - name: "radio-bose-sonos"
+    category: "radio"
+    description: "Enceintes / radio Bose ou Sonos"
+    matches:
+      - hostname_regex: "bose|sonos|bluesound|warp|soundlink|soundtouch|sonar.*radio|radio.*sonos"
+      - vendor_regex: "bose|sonos"
+    priority: 9
+    tags:
+      - audio
+      - enceinte
+
+  - name: "switch-generic"
+    category: "switch"
+    description: "Switch réseau géré (banner IOS / gestionnaire)"
+    matches:
+      - banner_regex: "Cisco IOS|Foundry|HP Comware|Juniper|Aruba|managed switch|WebSmart"
+    priority: 8
+    tags:
+      - switch
+      - reseau
+
+  - name: "onduleur-solaire"
+    category: "onduleur"
+    description: "Onduleur solaire / onduleur batterie (SMA, Victron, InVT...)"
+    matches:
+      - hostname_regex: "sma|solar|inverter|sun|victron|solarmax|fronius|solis"
+      - vendor_regex: "sma |victron|solar"
+    priority: 8
+    tags:
+      - energie
+      - solaire
+
+  - name: "iot-generic"
+    category: "iot"
+    description: "Appareils IoT génériques (ports communs)"
+    matches:
+      - port: 8080
+      - vendor_regex: "Generic|IoT|Embedded"
+    priority: 5
+    tags:
+      - smart-home
+
+  - name: "router-gateway"
+    category: "network-device"
+    description: "Routeurs passelle"
+    matches:
+      - hostname_regex: "gateway|router.*lan"
+    priority: 6
+    tags:
+      - infrastructure

@@ -677,7 +677,7 @@ def parse_args():
     p = argparse.ArgumentParser(description="Scanner LAN ARP (sans nmap) + tableau + CSV/XLSX + IDS (ARP/DNS/DHCP/Scan).")
     # arguments
     p.add_argument("--config", default=None, help="Fichier YAML de configuration.")
-    p.add_argument("--network", default="192.168.1.0/24")
+    p.add_argument("--network", default="10.0.0.0/24")
     p.add_argument("--iface", default=None)
     p.add_argument("--interval", type=int, default=60)
     p.add_argument("--csv", default="scan_report.csv")

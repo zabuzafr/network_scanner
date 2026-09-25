@@ -1,0 +1,15 @@
+venv/
+vnev/
+__pycache__/
+*.pyc
+*.db
+.pytest_cache/
+.env
+opencode.json
+PROMPT.md
+lan_ids_v3.py
+pynetscanner.py
+test
+config.yaml
+config/config.yaml.example
+capture_screenshots.py

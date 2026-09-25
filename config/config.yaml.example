@@ -1,0 +1,23 @@
+# Network Scanner Configuration Example
+scanner:
+  default_cidr: "10.0.0.0/24"
+  default_iface: null
+  timeout: 2
+  icmp_timeout: 1.0
+  tcp_timeout: 1.0
+  tcp_probes: "443,80"
+
+classifier:
+  rules_yaml: "config/rules.yaml"
+
+database:
+  url: "sqlite:///./network_scanner.db"
+
+notifications:
+  telegram:
+    enabled: false
+    bot_token: "${TELEGRAM_BOT_TOKEN}"
+    chat_id: "${TELEGRAM_CHAT_ID}"
+  discord:
+    enabled: false
+    webhook_url: "${DISCORD_WEBHOOK_URL}"

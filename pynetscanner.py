@@ -351,7 +351,7 @@ def run_loop(args):
 
 def parse_args():
     p = argparse.ArgumentParser(description="Scanner LAN ARP (sans nmap) avec affichage console, CSV/XLSX, et détection d’OS (TTL).")
-    p.add_argument("--network", default="192.168.0.0/24", help="Plage réseau CIDR (ex: 192.168.1.0/24)")
+    p.add_argument("--network", default="10.0.0.0/24", help="Plage réseau CIDR (ex: 10.0.0.0/24)")
     p.add_argument("--iface", default=None, help="Interface réseau (ex: eth0, en0, Wi-Fi). Défaut: interface Scapy.")
     p.add_argument("--interval", type=int, default=60, help="Intervalle (secondes) entre scans en mode boucle.")
     p.add_argument("--csv", default="scan_report.csv", help="Fichier de sortie CSV.")

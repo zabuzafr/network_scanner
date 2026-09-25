@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Network Scanner</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <div class="brand">
+    <span class="logo">&#9673;</span>
+    <h1>Network Scanner</h1>
+  </div>
+  <div class="header-actions">
+    <button type="button" id="global-anon-btn" class="btn-ghost" title="Masquer les adresses IP et noms d'hôtes dans toutes les vues">Anonymiser</button>
+    <div class="status-pill" id="api-status">
+      <span class="dot"></span>
+      <span class="label" id="api-status-text">Verification…</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- Panneau de scan -->
+  <section class="card" id="scan-panel">
+    <div class="card-header">
+      <h2>Lancer un scan</h2>
+      <button type="button" id="refresh-btn" class="btn-ghost">Rafraichir les hosts</button>
+    </div>
+    <form id="scan-form" class="scan-form">
+      <label>
+        Reseau (CIDR)
+        <input type="text" id="cidr" placeholder="10.0.0.0/24" required>
+      </label>
+      <label>
+        Interface reseau
+        <select id="iface">
+          <option value="">Auto</option>
+        </select>
+      </label>
+      <button type="submit" id="scan-btn">
+        <span class="btn-label">Scanner</span>
+        <span class="spinner" hidden></span>
+      </button>
+    </form>
+    <p class="hint">Le scan utilise ARP + sonde ICMP/TCP + ports ouverts, puis applique les regles de classification et la detection CVE.</p>
+    <div id="scan-error" class="error" hidden></div>
+  </section>
+
+  <!-- Onglets style carnet -->
+  <nav class="nav-bar" id="main-nav" aria-label="Categories de hosts"></nav>
+
+  <!-- Resultats -->
+  <section class="card results-card" id="results-panel">
+    <div class="card-header">
+      <div>
+        <h2 id="results-title">Hosts</h2>
+        <span class="badge" id="scan-count">0</span>
+      </div>
+      <div class="card-actions">
+        <input type="search" id="host-filter" placeholder="Filtrer (IP, MAC, nom, constructeur…)">
+      </div>
+    </div>
+    <div class="subrefbar" id="subref-bar" hidden></div>
+    <p class="error" id="hosts-error" hidden></p>
+    <div class="table-wrap">
+      <table class="hosts-table" id="hosts-table">
+        <thead>
+          <tr>
+            <th>IP</th>
+            <th>Nom</th>
+            <th>MAC</th>
+            <th>Constructeur</th>
+            <th>Categorie</th>
+            <th>Ports ouverts</th>
+            <th>Etat</th>
+          </tr>
+        </thead>
+        <tbody id="hosts-tbody"></tbody>
+      </table>
+    </div>
+    <p class="empty" id="hosts-empty" hidden>Aucun hote dans cette categorie.</p>
+  </section>
+
+  <!-- Alertes MAC -->
+  <section class="card alerts-card" id="alerts-panel">
+    <div class="card-header">
+      <div>
+        <h2>Alertes MAC</h2>
+        <span class="badge" id="alerts-count">0</span>
+      </div>
+      <div class="card-actions">
+        <button type="button" id="alerts-refresh" class="btn-ghost">Rafraichir</button>
+      </div>
+    </div>
+    <p class="error" id="alerts-error" hidden></p>
+    <div id="alerts-list" class="alerts-list"></div>
+    <p class="empty" id="alerts-empty" hidden>Aucune alerte.</p>
+  </section>
+
+  <!-- WiFi -->
+  <section class="card wifi-card" id="wifi-panel">
+    <div class="card-header">
+      <div>
+        <h2>WiFi</h2>
+        <span class="badge" id="wifi-attacks-count">0</span>
+      </div>
+      <div class="card-actions">
+        <button type="button" id="wifi-scan-btn" class="btn-ghost"><span class="btn-label">Scanner le WiFi</span><span class="spinner spinner-light" hidden></span></button>
+        <button type="button" id="wifi-clear-btn" class="btn-ghost" title="Toutes les attaques WiFi supprimees"><span class="btn-label">Vider les attaques</span><span class="spinner spinner-light" hidden></span></button>
+      </div>
+    </div>
+    <p class="hint">Detection passive : Evil Twin, AP douteux, chiffrement faible, mode ad-hoc, nouveaux SSID inconnus.</p>
+    <p class="error" id="wifi-error" hidden></p>
+
+    <div class="wifi-attacks-block">
+      <h3 class="wifi-block-title">Attaques detectees</h3>
+      <div id="wifi-attacks-list" class="wifi-attacks-list"></div>
+      <p class="empty" id="wifi-attacks-empty" hidden>Aucune attaque WiFi detectee.</p>
+    </div>
+
+    <div class="wifi-networks-block">
+      <h3 class="wifi-block-title">Réseaux vus</h3>
+      <div class="table-wrap">
+        <table class="wifi-table" id="wifi-table">
+          <thead>
+            <tr>
+              <th>SSID</th>
+              <th>BSSID</th>
+              <th>Mode</th>
+              <th>Securite</th>
+              <th>Signal</th>
+              <th>Freq</th>
+              <th>Dernier vu</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="wifi-tbody"></tbody>
+        </table>
+      </div>
+      <p class="empty" id="wifi-empty" hidden>Aucun reseau. Lancez un scan WiFi.</p>
+    </div>
+  </section>
+</main>
+
+<!-- Modal CVE -->
+<div class="modal-overlay" id="cve-modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cve-modal-title">
+    <div class="modal-head">
+      <div class="modal-title-row">
+        <h2 id="cve-modal-title">CVE</h2>
+        <span class="sev-pill" id="cve-modal-sev"></span>
+      </div>
+      <button type="button" class="modal-close" id="cve-modal-close" aria-label="Fermer">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-desc" id="cve-modal-desc"></p>
+      <div class="modal-meta">
+        <span class="key">CVSS</span><span class="val mono" id="cve-modal-cvss"></span>
+      </div>
+      <div class="modal-meta" id="cve-modal-refs" hidden>
+        <span class="key">Refs</span>
+        <span class="val" id="cve-modal-refs-val"></span>
+      </div>
+      <div class="modal-meta" id="cve-modal-rem" hidden>
+        <span class="key">Remediation</span><span class="val" id="cve-modal-rem-val"></span>
+      </div>
+      <div class="modal-meta" id="cve-modal-nvd">
+        <span class="key">NVD</span>
+        <span class="val"><a id="cve-modal-nvd-link" href="#" target="_blank" rel="noopener"></a></span>
+      </div>
+      <div class="modal-foot">
+        <a class="btn-ghost" id="cve-modal-nvd-btn" href="#" target="_blank" rel="noopener">Ouvrir dans NVD</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal detail hote -->
+<div class="modal-overlay" id="host-modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="host-modal-title">
+    <div class="modal-head">
+      <div class="modal-title-row">
+        <h2 id="host-modal-title">Détail hôte</h2>
+      </div>
+      <button type="button" class="modal-close" id="host-modal-close" aria-label="Fermer">&#10005;</button>
+    </div>
+    <div class="modal-body" id="host-modal-body"></div>
+  </div>
+</div>
+
+<footer>
+  Network Scanner API v<span id="api-version">…</span>
+</footer>
+
+<script src="/app.js"></script>
+</body>
+</html>
